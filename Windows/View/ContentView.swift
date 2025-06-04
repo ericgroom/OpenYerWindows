@@ -43,9 +43,7 @@ struct ContentView: View {
             Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
             Text(recommendation.displayText)
             Section {
-                ForEach(asdf, id: \.0.date) { forecast, recommendation in
-                    Text("\(forecast.date.formatted(hourlyFormat))  \(forecast.temperature.formatted(shortTemp)):  \(recommendation.displayText)")
-                }
+                ForecastChart(weather: hourlyForecast.map { $0.0 }.map { TemperatureRecord(weather: $0)})
             }
         }
         .onAppear {
@@ -74,7 +72,7 @@ struct ContentView: View {
         Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: exteriorTemperature)
     }
 
-    var asdf: [(HourWeather, Recommendation)] {
+    var hourlyForecast: [(HourWeather, Recommendation)] {
         guard let weather = weatherManager.weather else { return [] }
         let forecast = weather.hourlyForecast
         guard let interiorTemperature else { return [] }
@@ -82,6 +80,13 @@ struct ContentView: View {
         let calendar = Calendar.autoupdatingCurrent
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        debugPrint(forecast
+            .filter { hour in
+                hour.date >= startOfToday && hour.date < endOfToday
+            }
+            .map { hour in
+                (hour.date.timeIntervalSince1970, hour.temperature)
+        })
         return forecast
             .filter { hour in
                 hour.date >= startOfToday && hour.date < endOfToday

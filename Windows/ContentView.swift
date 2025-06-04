@@ -113,6 +113,18 @@ enum Recommendation {
             return "I dunno"
         }
     }
+
+    init(interiorTemperature: Measurement<UnitTemperature>?, exteriorTemperature: Measurement<UnitTemperature>?) {
+        guard let exteriorTemperature, let interiorTemperature else {
+            self = .undetermined
+            return
+        }
+        if exteriorTemperature >= interiorTemperature {
+           self = .closeWindows
+        } else {
+            self = .openWindows
+        }
+    }
 }
 
 struct ContentView: View {
@@ -148,10 +160,24 @@ struct ContentView: View {
             Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
             Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
             Text(recommendation.displayText)
+            Section {
+                ForEach(asdf, id: \.0.date) { forecast, recommendation in
+                    Text("\(forecast.date.formatted(hourlyFormat))  \(forecast.temperature.formatted(shortTemp)):  \(recommendation.displayText)")
+                }
+            }
         }
         .onAppear {
             address = locationManager.location?.name ?? ""
         }
+    }
+
+    var hourlyFormat: Date.FormatStyle {
+        Date.FormatStyle()
+            .hour(.conversationalDefaultDigits(amPM: .abbreviated))
+    }
+
+    var shortTemp: Measurement<UnitTemperature>.FormatStyle {
+        Measurement<UnitTemperature>.FormatStyle(width: .abbreviated, usage: .weather, numberFormatStyle: .number.precision(.fractionLength(0)))
     }
 
     var exteriorTemperature: Measurement<UnitTemperature>? {
@@ -163,11 +189,23 @@ struct ContentView: View {
     }
 
     var recommendation: Recommendation {
-        guard let exteriorTemperature, let interiorTemperature else { return .undetermined }
-        if exteriorTemperature >= interiorTemperature {
-            return .closeWindows
-        } else {
-            return .openWindows
+        Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: exteriorTemperature)
+    }
+
+    var asdf: [(HourWeather, Recommendation)] {
+        guard let weather = weatherManager.weather else { return [] }
+        let forecast = weather.hourlyForecast
+        guard let interiorTemperature else { return [] }
+        let now = Date()
+        let calendar = Calendar.autoupdatingCurrent
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        return forecast
+            .filter { hour in
+                hour.date >= startOfToday && hour.date < endOfToday
+            }
+            .map { hour in
+            (hour, Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: hour.temperature))
         }
     }
 }

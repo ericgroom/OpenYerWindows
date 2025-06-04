@@ -7,6 +7,7 @@
 
 import CoreLocation
 import WeatherKit
+import HomeKit
 
 class Manager {
     enum Error: Swift.Error {

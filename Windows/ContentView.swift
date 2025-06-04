@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
-import WeatherKit
+@preconcurrency import WeatherKit
 import CoreLocation
+import HomeKit
 
 @Observable
+@MainActor
 class LocationManager {
     let key = "user_location"
     var location: CLPlacemark? {
@@ -34,6 +36,7 @@ class LocationManager {
 }
 
 @Observable
+@MainActor
 class WeatherManager {
     let key = "user_weather"
     var weather: Weather? {
@@ -57,12 +60,68 @@ class WeatherManager {
     }
 }
 
+@Observable
+@MainActor
+class HomeManager: NSObject, HMHomeManagerDelegate {
+    var homes: [HMHome] = []
+    private let manager: HMHomeManager
+
+    override init() {
+        manager = HMHomeManager()
+        super.init()
+        manager.delegate = self
+    }
+
+    nonisolated func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
+        Task { @MainActor in
+            self.homes = manager.homes
+        }
+    }
+
+    func temperature() -> Measurement<UnitTemperature>? {
+        guard let primaryHome = homes.first else { return nil }
+        let services = primaryHome.servicesWithTypes([HMServiceTypeThermostat])!
+        for service in services {
+            for characteristic in service.characteristics {
+                if characteristic.characteristicType == HMCharacteristicTypeCurrentTemperature {
+                    if characteristic.service?.accessory?.name == "Truck Climate" {
+                        continue
+                    }
+                    if let value = characteristic.value as? Double {
+                        let temp = Measurement(value: value, unit: UnitTemperature.celsius)
+                        return temp
+                    }
+                }
+            }
+        }
+        return nil
+    }
+}
+
+enum Recommendation {
+    case closeWindows
+    case openWindows
+    case undetermined
+
+    var displayText: String {
+        switch self {
+        case .closeWindows:
+            return "Close yer windows"
+        case .openWindows:
+            return "Open yer windows"
+        case .undetermined:
+            return "I dunno"
+        }
+    }
+}
+
 struct ContentView: View {
     @State var manager = Manager()
     @State var address = ""
     @State var isFetching = false
     @State var locationManager = LocationManager()
     @State var weatherManager = WeatherManager()
+    @State var homeManager = HomeManager()
 
     var body: some View {
         Form {
@@ -86,10 +145,29 @@ struct ContentView: View {
             if isFetching {
                 ProgressView()
             }
-            Text("Weather: \(weatherManager.weather?.currentWeather.temperature.converted(to: .fahrenheit))")
+            Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
+            Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
+            Text(recommendation.displayText)
         }
         .onAppear {
             address = locationManager.location?.name ?? ""
+        }
+    }
+
+    var exteriorTemperature: Measurement<UnitTemperature>? {
+        weatherManager.weather?.currentWeather.temperature
+    }
+
+    var interiorTemperature: Measurement<UnitTemperature>? {
+        homeManager.temperature()
+    }
+
+    var recommendation: Recommendation {
+        guard let exteriorTemperature, let interiorTemperature else { return .undetermined }
+        if exteriorTemperature >= interiorTemperature {
+            return .closeWindows
+        } else {
+            return .openWindows
         }
     }
 }

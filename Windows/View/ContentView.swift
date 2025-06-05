@@ -22,16 +22,13 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
-                Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
-                Text(recommendation.displayText)
                 Section {
-                    ForecastChart(weather: hourlyForecastForToday)
+                    conditions
                 }
                 Section {
-                    ForEach(inflectionPoints, id: \.record.date) { point in
-                        inflectionPointView(point)
-                    }
+                    ForecastChart(weather: hourlyForecastForToday)
+                        .frame(height: 200)
+                        .padding(.vertical, 32)
                 }
             }
             .onChange(of: inflectionPoints) { oldValue, newValue in
@@ -61,6 +58,55 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var conditions: some View {
+        VStack {
+            HStack(spacing: 32.0) {
+                Spacer()
+                VStack {
+                    Image(systemName: "sun.max.fill")
+                    Text("\(exteriorTemperature?.formatted(shortTemp) ?? "unknown")")
+                }
+                Divider()
+                VStack(alignment: .center) {
+                    Image(systemName: "house.fill")
+                    Text("\(interiorTemperature?.formatted(shortTemp) ?? "unknown")")
+                }
+                Spacer()
+            }
+            .font(.system(size: 32))
+            .monospacedDigit()
+            .padding(.vertical, 16)
+            switch recommendation {
+            case .closeWindows:
+                Text("Keep your windows closed for now")
+                    .font(.headline)
+            case .openWindows:
+                Text("You can open your windows to let in some cooler air")
+                    .font(.headline)
+            case .undetermined:
+                EmptyView()
+            }
+            if let nextInflectionPoint {
+                let verb = switch nextInflectionPoint.recommendation {
+                case .closeWindows:
+                    "close"
+                case .openWindows:
+                    "open"
+                case .undetermined:
+                    "idk"
+                }
+                Text("You should \(verb) your windows at \(nextInflectionPoint.record.date.formatted(hourlyFormat))")
+                    .font(.caption)
+            }
+        }
+    }
+
+    var nextInflectionPoint: RecommendationWithContext? {
+        inflectionPoints
+            .first { $0.record.date > now }
     }
 
     @ViewBuilder

@@ -9,6 +9,7 @@ import SwiftUI
 @preconcurrency import WeatherKit
 import CoreLocation
 import HomeKit
+import UserNotifications
 
 struct ContentView: View {
     @State var address = ""
@@ -53,6 +54,9 @@ struct ContentView: View {
         }
         .onAppear {
             address = locationManager.location?.name ?? ""
+            Task {
+                try! await scheduleNotifications()
+            }
         }
     }
 
@@ -116,6 +120,30 @@ struct ContentView: View {
 
         result.removeFirst()
         return result
+    }
+
+    private func scheduleNotifications() async throws {
+        try await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound])
+
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
+        for (record, recommendation) in inflectionPoints {
+            guard record.date > Date() else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = recommendation.displayText
+            content.body = "It is \(record.temperature.formatted()) outside."
+            content.sound = .default
+            content.interruptionLevel = .timeSensitive
+
+            let components = Calendar.autoupdatingCurrent.dateComponents(in: .autoupdatingCurrent, from: record.date)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+
+            try await UNUserNotificationCenter.current().add(request)
+            print("scheduled notification for \(record.date)")
+        }
     }
 }
 

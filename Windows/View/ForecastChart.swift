@@ -12,11 +12,12 @@ struct ForecastChart: View {
     let weather: [TemperatureRecord]
     @State var now = Date()
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @Environment(TempPrefManager.self) var tempPrefManager
 
     var body: some View {
         Chart {
             LinePlot(weather, x: .value("Time", \.date), y: .value("Temperature", \.temp))
-            RuleMark(xStart: 0, xEnd: 500, y: .value("Target", 76))
+            RuleMark(xStart: 0, xEnd: 500, y: .value("Target", tempPrefManager.preference?.temperature.converted(to: .fahrenheit).value ?? 76))
                 .foregroundStyle(.blue)
             RuleMark(x: PlottableValue.value("Now", now))
                 .foregroundStyle(.gray)

@@ -12,6 +12,7 @@ struct WindowsApp: App {
     @State var locationManager: LocationManager = .init()
     @State var weatherManager: WeatherManager = .init()
     @State var homeManager: HomeManager = .init()
+    @State var tempPrefManager: TempPrefManager = .init()
 
     var body: some Scene {
         WindowGroup {
@@ -19,6 +20,7 @@ struct WindowsApp: App {
                 .environment(locationManager)
                 .environment(weatherManager)
                 .environment(homeManager)
+                .environment(tempPrefManager)
         }
     }
 }

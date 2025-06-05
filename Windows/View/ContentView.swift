@@ -44,7 +44,7 @@ struct ContentView: View {
             Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
             Text(recommendation.displayText)
             Section {
-                ForecastChart(weather: hourlyForecast.map { $0.0 }.map { TemperatureRecord(weather: $0)})
+                ForecastChart(weather: hourlyForecastForToday)
             }
             Section {
                 ForEach(inflectionPoints, id: \.0.date) { record, recommendation in
@@ -82,26 +82,19 @@ struct ContentView: View {
         Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: exteriorTemperature)
     }
 
-    var hourlyForecast: [(HourWeather, Recommendation)] {
+    var hourlyForecastForToday: [TemperatureRecord] {
         guard let weather = weatherManager.weather else { return [] }
         let forecast = weather.hourlyForecast
-        guard let interiorTemperature else { return [] }
         let now = Date()
-        let calendar = Calendar.autoupdatingCurrent
-        let startOfToday = calendar.startOfDay(for: now)
-        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+        let dateRange = Calendar.autoupdatingCurrent.daySpanning(date: now)
         return forecast
-            .filter { hour in
-                hour.date >= startOfToday && hour.date < endOfToday
-            }
-            .map { hour in
-            (hour, Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: hour.temperature))
-        }
+            .between(start: dateRange.lowerBound, end: dateRange.upperBound)
+            .map { TemperatureRecord(weather: $0) }
     }
 
     var inflectionPoints: [(TemperatureRecord, Recommendation)] {
         guard let interiorTemperature else { return [] }
-        let forecast = hourlyForecast.map { $0.0 }.map { TemperatureRecord(weather: $0)}
+        let forecast = hourlyForecastForToday
         var result: [(TemperatureRecord, Recommendation)] = []
         guard var previous = forecast.first else { return [] }
         for hour in forecast[1...] {

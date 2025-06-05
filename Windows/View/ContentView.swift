@@ -17,6 +17,8 @@ struct ContentView: View {
     @State var locationManager = LocationManager()
     @State var weatherManager = WeatherManager()
     @State var homeManager = HomeManager()
+    @State var now = Date()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Form {
@@ -60,6 +62,9 @@ struct ContentView: View {
                 try! await scheduleNotifications(inflectionPoints: newValue)
             }
         }
+        .onReceive(timer) { _ in
+            now = Date()
+        }
     }
 
     var hourlyFormat: Date.FormatStyle {
@@ -73,7 +78,11 @@ struct ContentView: View {
     }
 
     var exteriorTemperature: Measurement<UnitTemperature>? {
-        weatherManager.weather?.currentWeather.temperature
+        let now = self.now
+        let closestToNow = minutelyForecastForToday.min { lhs, rhs in
+            abs(lhs.date.distance(to: now)) < abs(rhs.date.distance(to: now))
+        }
+        return closestToNow?.temperature
     }
 
     var interiorTemperature: Measurement<UnitTemperature>? {
@@ -87,7 +96,7 @@ struct ContentView: View {
     var hourlyForecastForToday: [TemperatureRecord] {
         guard let weather = weatherManager.weather else { return [] }
         let forecast = weather.hourlyForecast
-        let now = Date()
+        let now = self.now
         let dateRange = Calendar.autoupdatingCurrent.daySpanning(date: now)
         return forecast
             .between(start: dateRange.lowerBound, end: dateRange.upperBound)

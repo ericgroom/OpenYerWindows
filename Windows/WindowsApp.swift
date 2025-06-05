@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct WindowsApp: App {
+    @State var locationManager: LocationManager = .init()
+    @State var weatherManager: WeatherManager = .init()
+    @State var homeManager: HomeManager = .init()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(locationManager)
+                .environment(weatherManager)
+                .environment(homeManager)
         }
     }
 }

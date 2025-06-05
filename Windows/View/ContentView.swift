@@ -14,9 +14,9 @@ import UserNotifications
 struct ContentView: View {
     @State var address = ""
     @State var isFetching = false
-    @State var locationManager = LocationManager()
-    @State var weatherManager = WeatherManager()
-    @State var homeManager = HomeManager()
+    @Environment(LocationManager.self) var locationManager
+    @Environment(WeatherManager.self) var weatherManager
+    @Environment(HomeManager.self) var homeManager
     @State var now = Date()
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 

@@ -15,6 +15,7 @@ struct ContentView: View {
     @Environment(LocationManager.self) var locationManager
     @Environment(WeatherManager.self) var weatherManager
     @Environment(HomeManager.self) var homeManager
+    @Environment(TempPrefManager.self) var tempPrefManager
     @State var now = Date()
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State var showSettings = false
@@ -26,10 +27,15 @@ struct ContentView: View {
                     conditions
                 }
                 Section {
-                    ForecastChart(weather: hourlyForecastForToday)
+                    ForecastChart(weather: hourlyForecastForToday, inflectionPoints: inflectionPoints)
                         .frame(height: 200)
                         .padding(.vertical, 32)
                 }
+//                Section {
+//                    ForEach(minutelyForecastForToday, id: \.date) { forecast in
+//                        Text("\(forecast.date.formatted(hourlyFormat)) - \(projectedInteriorTemperature(outdoorTemperature: forecast.temperature)?.formatted())")
+//                    }
+//                }
             }
             .onChange(of: inflectionPoints) { oldValue, newValue in
                 Task {
@@ -158,12 +164,17 @@ struct ContentView: View {
             }
     }
 
+    private func projectedInteriorTemperature(outdoorTemperature: Measurement<UnitTemperature>) -> Measurement<UnitTemperature>? {
+        let targetIndoorTemp = tempPrefManager.preference?.temperature
+        return targetIndoorTemp ?? outdoorTemperature
+    }
+
     var inflectionPoints: [RecommendationWithContext] {
-        guard let interiorTemperature else { return [] }
         let forecast = minutelyForecastForToday
         var result: [RecommendationWithContext] = []
 
         result = forecast.reduce(into: [RecommendationWithContext]()) { partialResult, forecast in
+            let interiorTemperature = projectedInteriorTemperature(outdoorTemperature: forecast.temperature)
             let recommendation = Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: forecast.temperature)
             if recommendation != partialResult.last?.recommendation {
                 partialResult.append(RecommendationWithContext(recommendation: recommendation, record: forecast))

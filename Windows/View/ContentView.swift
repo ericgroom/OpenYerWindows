@@ -12,7 +12,6 @@ import HomeKit
 import UserNotifications
 
 struct ContentView: View {
-    @State var isFetching = false
     @Environment(LocationManager.self) var locationManager
     @Environment(WeatherManager.self) var weatherManager
     @Environment(HomeManager.self) var homeManager
@@ -23,17 +22,6 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Button("Fetch Weather") {
-                    guard !isFetching else { return }
-                    isFetching = true
-                    Task {
-                        defer { isFetching = false }
-                        try await weatherManager.updateWeather(locationManager.location!.location!)
-                    }
-                }.disabled(locationManager.location == nil)
-                if isFetching {
-                    ProgressView()
-                }
                 Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
                 Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
                 Text(recommendation.displayText)
@@ -53,6 +41,12 @@ struct ContentView: View {
             }
             .onReceive(timer) { _ in
                 now = Date()
+            }
+            .refreshable {
+                guard let location = locationManager.location?.location else {
+                    return
+                }
+                try? await weatherManager.updateWeather(location)
             }
             .sheet(isPresented: $showSettings, content: {
                 SettingsView()

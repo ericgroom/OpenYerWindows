@@ -92,22 +92,23 @@ struct ContentView: View {
             .map { TemperatureRecord(weather: $0) }
     }
 
+    var minutelyForecastForToday: [TemperatureRecord] {
+        zip(hourlyForecastForToday, hourlyForecastForToday.dropFirst())
+            .flatMap { start, end in
+                TemperatureRecord.lerp(start: start, end: end, steps: 60)
+                    .dropLast()
+            }
+    }
+
     var inflectionPoints: [(TemperatureRecord, Recommendation)] {
         guard let interiorTemperature else { return [] }
-        let forecast = hourlyForecastForToday
+        let forecast = minutelyForecastForToday
         var result: [(TemperatureRecord, Recommendation)] = []
-        guard var previous = forecast.first else { return [] }
-        for hour in forecast[1...] {
-            defer { previous = hour }
-            let lerped = TemperatureRecord.lerp(start: previous, end: hour, steps: 60)
-            let withRecs = lerped.map { ($0, Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: $0.temperature))}
-            result.append(contentsOf: withRecs)
-        }
 
-        result = result.reduce(into: [(TemperatureRecord, Recommendation)]()) { partialResult, next in
-            let (record, rec) = next
-            if rec != partialResult.last?.1 {
-                partialResult.append(next)
+        result = forecast.reduce(into: [(TemperatureRecord, Recommendation)]()) { partialResult, forecast in
+            let recommendation = Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: forecast.temperature)
+            if recommendation != partialResult.last?.1 {
+                partialResult.append((forecast, recommendation))
             }
         }
 

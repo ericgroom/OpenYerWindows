@@ -35,7 +35,7 @@ extension TemperatureRecord {
 
         var previous = start
         var result = [start]
-        var remainingSteps = steps - 2
+        var remainingSteps = steps - 1
 
         while remainingSteps > 0 {
             defer { remainingSteps -= 1 }

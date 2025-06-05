@@ -12,59 +12,66 @@ import HomeKit
 import UserNotifications
 
 struct ContentView: View {
-    @State var address = ""
     @State var isFetching = false
     @Environment(LocationManager.self) var locationManager
     @Environment(WeatherManager.self) var weatherManager
     @Environment(HomeManager.self) var homeManager
     @State var now = Date()
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State var showSettings = false
 
     var body: some View {
-        Form {
-            TextField("Address", text: $address)
-            Button("Fetch Location") {
-                guard !isFetching else { return }
-                isFetching = true
+        NavigationStack {
+            Form {
+                Button("Fetch Weather") {
+                    guard !isFetching else { return }
+                    isFetching = true
+                    Task {
+                        defer { isFetching = false }
+                        try await weatherManager.updateWeather(locationManager.location!.location!)
+                    }
+                }.disabled(locationManager.location == nil)
+                if isFetching {
+                    ProgressView()
+                }
+                Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
+                Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
+                Text(recommendation.displayText)
+                Section {
+                    ForecastChart(weather: hourlyForecastForToday)
+                }
+                Section {
+                    ForEach(inflectionPoints, id: \.record.date) { point in
+                        inflectionPointView(point)
+                    }
+                }
+            }
+            .onChange(of: inflectionPoints) { oldValue, newValue in
                 Task {
-                    defer { isFetching = false }
-                    try! await locationManager.setAddress(address)
+                    try! await scheduleNotifications(inflectionPoints: newValue)
                 }
             }
-            Button("Fetch Weather") {
-                guard !isFetching else { return }
-                isFetching = true
-                Task {
-                    defer { isFetching = false }
-                    try await weatherManager.updateWeather(locationManager.location!.location!)
-                }
-            }.disabled(locationManager.location == nil)
-            if isFetching {
-                ProgressView()
+            .onReceive(timer) { _ in
+                now = Date()
             }
-            Text("Exterior temp: \(exteriorTemperature?.formatted() ?? "unknown")")
-            Text("Interior temp: \(homeManager.temperature()?.formatted() ?? "unknown")")
-            Text(recommendation.displayText)
-            Section {
-                ForecastChart(weather: hourlyForecastForToday)
-            }
-            Section {
-                ForEach(inflectionPoints, id: \.record.date) { point in
-                    Text("\(point.record.date.formatted(hourlyFormat))  \(point.record.temperature.formatted(shortTemp)):  \(point.recommendation.displayText)")
+            .sheet(isPresented: $showSettings, content: {
+                SettingsView()
+            })
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
                 }
             }
         }
-        .onAppear {
-            address = locationManager.location?.name ?? ""
-        }
-        .onChange(of: inflectionPoints) { oldValue, newValue in
-            Task {
-                try! await scheduleNotifications(inflectionPoints: newValue)
-            }
-        }
-        .onReceive(timer) { _ in
-            now = Date()
-        }
+    }
+
+    @ViewBuilder
+    private func inflectionPointView(_ point: RecommendationWithContext) -> some View {
+        Text("\(point.record.date.formatted(hourlyFormat))  \(point.record.temperature.formatted(shortTemp)):  \(point.recommendation.displayText)")
     }
 
     var hourlyFormat: Date.FormatStyle {

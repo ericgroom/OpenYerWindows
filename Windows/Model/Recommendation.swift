@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum Recommendation {
+enum Recommendation: Equatable {
     case closeWindows
     case openWindows
     case undetermined
@@ -34,4 +34,9 @@ enum Recommendation {
             self = .openWindows
         }
     }
+}
+
+struct RecommendationWithContext: Equatable {
+    let recommendation: Recommendation
+    let record: TemperatureRecord
 }

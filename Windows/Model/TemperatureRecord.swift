@@ -8,7 +8,7 @@
 import Foundation
 import WeatherKit
 
-struct TemperatureRecord {
+struct TemperatureRecord: Equatable {
     let date: Date
     let temperature: Measurement<UnitTemperature>
 

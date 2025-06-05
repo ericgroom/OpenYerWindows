@@ -47,15 +47,17 @@ struct ContentView: View {
                 ForecastChart(weather: hourlyForecastForToday)
             }
             Section {
-                ForEach(inflectionPoints, id: \.0.date) { record, recommendation in
-                    Text("\(record.date.formatted(hourlyFormat))  \(record.temperature.formatted(shortTemp)):  \(recommendation.displayText)")
+                ForEach(inflectionPoints, id: \.record.date) { point in
+                    Text("\(point.record.date.formatted(hourlyFormat))  \(point.record.temperature.formatted(shortTemp)):  \(point.recommendation.displayText)")
                 }
             }
         }
         .onAppear {
             address = locationManager.location?.name ?? ""
+        }
+        .onChange(of: inflectionPoints) { oldValue, newValue in
             Task {
-                try! await scheduleNotifications()
+                try! await scheduleNotifications(inflectionPoints: newValue)
             }
         }
     }
@@ -100,15 +102,15 @@ struct ContentView: View {
             }
     }
 
-    var inflectionPoints: [(TemperatureRecord, Recommendation)] {
+    var inflectionPoints: [RecommendationWithContext] {
         guard let interiorTemperature else { return [] }
         let forecast = minutelyForecastForToday
-        var result: [(TemperatureRecord, Recommendation)] = []
+        var result: [RecommendationWithContext] = []
 
-        result = forecast.reduce(into: [(TemperatureRecord, Recommendation)]()) { partialResult, forecast in
+        result = forecast.reduce(into: [RecommendationWithContext]()) { partialResult, forecast in
             let recommendation = Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: forecast.temperature)
-            if recommendation != partialResult.last?.1 {
-                partialResult.append((forecast, recommendation))
+            if recommendation != partialResult.last?.recommendation {
+                partialResult.append(RecommendationWithContext(recommendation: recommendation, record: forecast))
             }
         }
 
@@ -116,13 +118,15 @@ struct ContentView: View {
         return result
     }
 
-    private func scheduleNotifications() async throws {
+    private func scheduleNotifications(inflectionPoints: [RecommendationWithContext]) async throws {
         try await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound])
 
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
 
-        for (record, recommendation) in inflectionPoints {
+        for point in inflectionPoints {
+            let record = point.record
+            let recommendation = point.recommendation
             guard record.date > Date() else { continue }
             let content = UNMutableNotificationContent()
             content.title = recommendation.displayText

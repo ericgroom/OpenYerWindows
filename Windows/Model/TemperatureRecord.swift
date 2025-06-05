@@ -23,6 +23,33 @@ extension TemperatureRecord {
 }
 
 extension TemperatureRecord {
+    static func lerp(start: TemperatureRecord, end: TemperatureRecord, steps: Int) -> [TemperatureRecord] {
+        precondition(start.date < end.date)
+        let endTime = end.date.timeIntervalSince1970
+        let startTime = start.date.timeIntervalSince1970
+        let timeStep = (endTime - startTime) / Double(steps)
+
+        let endTemp = end.temperature
+        let startTemp = start.temperature
+        let tempStep = (endTemp - startTemp) / Double(steps)
+
+        var previous = start
+        var result = [start]
+        var remainingSteps = steps - 2
+
+        while remainingSteps > 0 {
+            defer { remainingSteps -= 1 }
+            let record = TemperatureRecord(date: previous.date.addingTimeInterval(timeStep), temperature: previous.temperature + tempStep)
+            defer { previous = record }
+            result.append(record)
+        }
+
+        result.append(end)
+        return result
+    }
+}
+
+extension TemperatureRecord {
     static var sampleData: [TemperatureRecord] {
         [
             .init(date: Date(timeIntervalSince1970: 1749020400.0), temperature: Measurement<UnitTemperature>(value: 19.959999084472656, unit: .celsius)),

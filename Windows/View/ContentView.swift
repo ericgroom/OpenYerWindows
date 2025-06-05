@@ -45,6 +45,11 @@ struct ContentView: View {
             Section {
                 ForecastChart(weather: hourlyForecast.map { $0.0 }.map { TemperatureRecord(weather: $0)})
             }
+            Section {
+                ForEach(inflectionPoints, id: \.0.date) { record, recommendation in
+                    Text("\(record.date.formatted(hourlyFormat))  \(record.temperature.formatted(shortTemp)):  \(recommendation.displayText)")
+                }
+            }
         }
         .onAppear {
             address = locationManager.location?.name ?? ""
@@ -54,6 +59,7 @@ struct ContentView: View {
     var hourlyFormat: Date.FormatStyle {
         Date.FormatStyle()
             .hour(.conversationalDefaultDigits(amPM: .abbreviated))
+            .minute()
     }
 
     var shortTemp: Measurement<UnitTemperature>.FormatStyle {
@@ -80,13 +86,6 @@ struct ContentView: View {
         let calendar = Calendar.autoupdatingCurrent
         let startOfToday = calendar.startOfDay(for: now)
         let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
-        debugPrint(forecast
-            .filter { hour in
-                hour.date >= startOfToday && hour.date < endOfToday
-            }
-            .map { hour in
-                (hour.date.timeIntervalSince1970, hour.temperature)
-        })
         return forecast
             .filter { hour in
                 hour.date >= startOfToday && hour.date < endOfToday
@@ -94,6 +93,29 @@ struct ContentView: View {
             .map { hour in
             (hour, Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: hour.temperature))
         }
+    }
+
+    var inflectionPoints: [(TemperatureRecord, Recommendation)] {
+        guard let interiorTemperature else { return [] }
+        let forecast = hourlyForecast.map { $0.0 }.map { TemperatureRecord(weather: $0)}
+        var result: [(TemperatureRecord, Recommendation)] = []
+        guard var previous = forecast.first else { return [] }
+        for hour in forecast[1...] {
+            defer { previous = hour }
+            let lerped = TemperatureRecord.lerp(start: previous, end: hour, steps: 60)
+            let withRecs = lerped.map { ($0, Recommendation(interiorTemperature: interiorTemperature, exteriorTemperature: $0.temperature))}
+            result.append(contentsOf: withRecs)
+        }
+
+        result = result.reduce(into: [(TemperatureRecord, Recommendation)]()) { partialResult, next in
+            let (record, rec) = next
+            if rec != partialResult.last?.1 {
+                partialResult.append(next)
+            }
+        }
+
+        result.removeFirst()
+        return result
     }
 }
 

@@ -107,6 +107,10 @@ struct ContentView: View {
                 Text("You should \(verb) your windows at \(nextInflectionPoint.record.date.formatted(hourlyFormat))")
                     .font(.caption)
             }
+            if let wind = weatherManager.weather?.currentWeather.wind {
+                Text("Wind \(wind.speed.formatted()) from \(wind.compassDirection.abbreviation)")
+                    .font(.caption2)
+            }
         }
     }
 
